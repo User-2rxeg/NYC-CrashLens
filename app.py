@@ -935,5 +935,5 @@ def update_dashboard(n_clicks, search_query, boroughs, years, vehicles, persons,
         )
         return "Error", "Error", "Error", "Error", empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
 
-if __name__ == '__main__':
-    app.run_server(debug=True, port=8050)
+# if __name__ == '__main__':
+#     app.run_server(debug=True, port=8050)
