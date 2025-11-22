@@ -39,6 +39,8 @@ try:
     
     # Try to load from D: drive first, then fall back to local
     csv_paths = [
+        'D:\\Uni\\semester 5\\data engineering\\NYC-CrashLens\\cleaned_merged_data (1).csv',
+        'cleaned_merged_data (1).csv',
         'D:\\cleaned_merged_data.csv',
         'D:\\NYC-CrashLens\\cleaned_merged_data.csv',
         'cleaned_merged_data.csv'
@@ -387,6 +389,16 @@ app.layout = dbc.Container([
                 dbc.Col([
                     dcc.Graph(id="crash-map")
                 ], width=12)
+            ]),
+            
+            # Fifth row - Scatter Plots
+            dbc.Row([
+                dbc.Col([
+                    dcc.Graph(id="time-borough-scatter")
+                ], width=6),
+                dbc.Col([
+                    dcc.Graph(id="vehicle-factor-scatter")
+                ], width=6)
             ])
         ], width=9)
     ])
@@ -486,7 +498,9 @@ def reset_filters(n_clicks):
      Output('contributing-factor-bar-chart', 'figure'),
      Output('person-type-pie-chart', 'figure'),
      Output('gender-comparison-chart', 'figure'),
-     Output('crash-map', 'figure')],
+     Output('crash-map', 'figure'),
+     Output('time-borough-scatter', 'figure'),
+     Output('vehicle-factor-scatter', 'figure')],
     Input('generate-report-btn', 'n_clicks'),
     [dash.dependencies.State('search-input', 'value'),
      dash.dependencies.State('borough-dropdown', 'value'),
@@ -502,7 +516,7 @@ def update_dashboard(n_clicks, search_query, boroughs, years, vehicles, persons,
     if df_global.empty:
         empty_fig = go.Figure()
         empty_fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
-        return "0", "0", "0", "N/A", empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
+        return "0", "0", "0", "N/A", empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
     
     df = df_global.copy()
     print(f"\n=== Update Dashboard Called ===")
@@ -825,6 +839,70 @@ def update_dashboard(n_clicks, search_query, boroughs, years, vehicles, persons,
     print(f"Crashes: {total_crashes:,}, Injuries: {total_injuries:,}, Fatalities: {total_fatalities:,}")
     print(f"Most dangerous borough: {most_dangerous}")
     
+    # SCATTER PLOT 1: Time Pattern by Hour & Borough
+    if len(df) > 0 and 'CRASH_DATE_x' in df.columns:
+        df_time = df.copy()
+        df_time['HOUR'] = df_time['CRASH_DATE_x'].dt.hour
+        
+        time_borough_data = df_time.groupby(['HOUR', 'BOROUGH']).size().reset_index(name='COUNT')
+        time_borough_data = time_borough_data[time_borough_data['BOROUGH'] != 'Unknown']
+        
+        if len(time_borough_data) > 0:
+            time_scatter_fig = px.scatter(
+                time_borough_data,
+                x='HOUR',
+                y='COUNT',
+                color='BOROUGH',
+                size='COUNT',
+                title='Crash Patterns by Hour and Borough',
+                labels={'HOUR': 'Hour of Day (0-23)', 'COUNT': 'Number of Crashes'},
+                hover_data=['BOROUGH', 'COUNT']
+            )
+            time_scatter_fig.update_layout(height=400)
+        else:
+            time_scatter_fig = go.Figure()
+            time_scatter_fig.add_annotation(text="No time data available", x=0.5, y=0.5, showarrow=False)
+    else:
+        time_scatter_fig = go.Figure()
+        time_scatter_fig.add_annotation(text="No time data available", x=0.5, y=0.5, showarrow=False)
+    
+    # SCATTER PLOT 2: Vehicle Type vs Contributing Factor (Bubble Chart)
+    if len(df) > 0:
+        top_vehicles = df['VEHICLE_TYPE_CODE_1'].value_counts().head(10).index.tolist()
+        top_factors = df['CONTRIBUTING_FACTOR_VEHICLE_1'].value_counts().head(10).index.tolist()
+        
+        vehicle_factor_df = df[
+            (df['VEHICLE_TYPE_CODE_1'].isin(top_vehicles)) & 
+            (df['CONTRIBUTING_FACTOR_VEHICLE_1'].isin(top_factors)) &
+            (df['VEHICLE_TYPE_CODE_1'] != 'Unknown') &
+            (df['CONTRIBUTING_FACTOR_VEHICLE_1'] != 'Unknown')
+        ]
+        
+        if len(vehicle_factor_df) > 0:
+            vf_counts = vehicle_factor_df.groupby(['VEHICLE_TYPE_CODE_1', 'CONTRIBUTING_FACTOR_VEHICLE_1']).size().reset_index(name='COUNT')
+            
+            vehicle_factor_scatter = px.scatter(
+                vf_counts,
+                x='VEHICLE_TYPE_CODE_1',
+                y='CONTRIBUTING_FACTOR_VEHICLE_1',
+                size='COUNT',
+                color='COUNT',
+                title='Vehicle Types vs Contributing Factors (Bubble Chart)',
+                labels={'VEHICLE_TYPE_CODE_1': 'Vehicle Type', 'CONTRIBUTING_FACTOR_VEHICLE_1': 'Contributing Factor'},
+                color_continuous_scale='Reds',
+                hover_data=['COUNT']
+            )
+            vehicle_factor_scatter.update_layout(
+                height=400,
+                xaxis={'tickangle': -45}
+            )
+        else:
+            vehicle_factor_scatter = go.Figure()
+            vehicle_factor_scatter.add_annotation(text="No vehicle/factor data", x=0.5, y=0.5, showarrow=False)
+    else:
+        vehicle_factor_scatter = go.Figure()
+        vehicle_factor_scatter.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
+    
     return (
         f"{total_crashes:,}",
         f"{total_injuries:,}",
@@ -836,7 +914,9 @@ def update_dashboard(n_clicks, search_query, boroughs, years, vehicles, persons,
         factor_bar_fig,
         person_pie_fig,
         gender_fig,
-        map_fig
+        map_fig,
+        time_scatter_fig,
+        vehicle_factor_scatter
     )
 
 if __name__ == '__main__':
