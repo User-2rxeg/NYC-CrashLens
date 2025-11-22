@@ -20,8 +20,9 @@ try:
     print(f"Standardized data loaded successfully. Shape: {df_global.shape}")
     
     # Data preparation
-    df_global['CRASH_DATE_x'] = pd.to_datetime(df_global['CRASH_DATE_x'], errors='coerce')
-    df_global['YEAR'] = df_global['CRASH_DATE_x'].dt.year
+   # Data preparation
+    df_global['CRASH_DATE_CRASH'] = pd.to_datetime(df_global['CRASH_DATE_CRASH'], errors='coerce')
+    df_global['YEAR'] = df_global['CRASH_DATE_CRASH'].dt.year
     
     # Convert to string and handle NaN - standardized values should already be consistent
     # The standardized dataset already has cleaned categorical values
@@ -935,5 +936,5 @@ def update_dashboard(n_clicks, search_query, boroughs, years, vehicles, persons,
         )
         return "Error", "Error", "Error", "Error", empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
 
-# if __name__ == '__main__':
-#     app.run_server(debug=True, port=8050)
+if _name_ == '_main_':
+    app.run(debug=True, port=8050)
