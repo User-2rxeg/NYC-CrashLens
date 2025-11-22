@@ -19,10 +19,9 @@ try:
     df_global = pd.read_csv('cleaned_merged_standardized_data.csv', low_memory=False)
     print(f"Standardized data loaded successfully. Shape: {df_global.shape}")
     
-    # Data preparation - YEAR already added in chunks
-    if 'YEAR' not in df_global.columns:
-        df_global['YEAR'] = df_global['CRASH_DATE_x'].dt.year
-    df_global['YEAR'] = df_global['YEAR'].astype('int16')
+    # Data preparation
+    df_global['CRASH_DATE_x'] = pd.to_datetime(df_global['CRASH_DATE_x'], errors='coerce')
+    df_global['YEAR'] = df_global['CRASH_DATE_x'].dt.year
     
     # Convert to string and handle NaN - standardized values should already be consistent
     # The standardized dataset already has cleaned categorical values
@@ -44,9 +43,9 @@ try:
     
     df_global['PERSON_INJURY'] = df_global['PERSON_INJURY'].astype(str).replace('nan', 'Unknown')
     
-    # Ensure numeric columns handle NaN
-    df_global['NUMBER_OF_PERSONS_INJURED'] = df_global['NUMBER_OF_PERSONS_INJURED'].fillna(0)
-    df_global['NUMBER_OF_PERSONS_KILLED'] = df_global['NUMBER_OF_PERSONS_KILLED'].fillna(0)
+    # Ensure numeric columns are properly typed
+    df_global['NUMBER_OF_PERSONS_INJURED'] = pd.to_numeric(df_global['NUMBER_OF_PERSONS_INJURED'], errors='coerce').fillna(0)
+    df_global['NUMBER_OF_PERSONS_KILLED'] = pd.to_numeric(df_global['NUMBER_OF_PERSONS_KILLED'], errors='coerce').fillna(0)
     
     print("Column names:", df_global.columns.tolist())
     print("Borough unique values:", df_global['BOROUGH'].unique()[:10])
