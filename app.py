@@ -391,13 +391,14 @@ app.layout = dbc.Container([
                 ], width=12)
             ]),
             
-            # Fifth row - Scatter Plots
+            # Fifth row - Scatter Plots: Time patterns and vehicle-factor analysis
+            # These visualizations help identify crash patterns by time and relationships between vehicle types and causes
             dbc.Row([
                 dbc.Col([
-                    dcc.Graph(id="time-borough-scatter")
+                    dcc.Graph(id="time-borough-scatter")  # Shows crash frequency by hour across boroughs
                 ], width=6),
                 dbc.Col([
-                    dcc.Graph(id="vehicle-factor-scatter")
+                    dcc.Graph(id="vehicle-factor-scatter")  # Bubble chart showing vehicle-factor correlations
                 ], width=6)
             ])
         ], width=9)
@@ -499,8 +500,8 @@ def reset_filters(n_clicks):
      Output('person-type-pie-chart', 'figure'),
      Output('gender-comparison-chart', 'figure'),
      Output('crash-map', 'figure'),
-     Output('time-borough-scatter', 'figure'),
-     Output('vehicle-factor-scatter', 'figure')],
+     Output('time-borough-scatter', 'figure'),  # New: Time pattern scatter plot output
+     Output('vehicle-factor-scatter', 'figure')],  # New: Vehicle-factor bubble chart output
     Input('generate-report-btn', 'n_clicks'),
     [dash.dependencies.State('search-input', 'value'),
      dash.dependencies.State('borough-dropdown', 'value'),
@@ -839,12 +840,21 @@ def update_dashboard(n_clicks, search_query, boroughs, years, vehicles, persons,
     print(f"Crashes: {total_crashes:,}, Injuries: {total_injuries:,}, Fatalities: {total_fatalities:,}")
     print(f"Most dangerous borough: {most_dangerous}")
     
+    # ============================================================
+    # NEW SCATTER PLOTS: Enhanced data visualization
+    # ============================================================
+    
     # SCATTER PLOT 1: Time Pattern by Hour & Borough
+    # Purpose: Identify peak crash hours and borough-specific patterns
+    # Purpose: Identify peak crash hours and borough-specific patterns
     if len(df) > 0 and 'CRASH_DATE_x' in df.columns:
         df_time = df.copy()
+        # Extract hour from crash datetime
         df_time['HOUR'] = df_time['CRASH_DATE_x'].dt.hour
         
+        # Group by hour and borough to count crashes
         time_borough_data = df_time.groupby(['HOUR', 'BOROUGH']).size().reset_index(name='COUNT')
+        # Filter out unknown boroughs for cleaner visualization
         time_borough_data = time_borough_data[time_borough_data['BOROUGH'] != 'Unknown']
         
         if len(time_borough_data) > 0:
@@ -867,10 +877,14 @@ def update_dashboard(n_clicks, search_query, boroughs, years, vehicles, persons,
         time_scatter_fig.add_annotation(text="No time data available", x=0.5, y=0.5, showarrow=False)
     
     # SCATTER PLOT 2: Vehicle Type vs Contributing Factor (Bubble Chart)
+    # Purpose: Visualize relationships between vehicle types and crash causes
+    # Bubble size represents crash frequency for each vehicle-factor combination
     if len(df) > 0:
+        # Get top 10 most common vehicle types and contributing factors
         top_vehicles = df['VEHICLE_TYPE_CODE_1'].value_counts().head(10).index.tolist()
         top_factors = df['CONTRIBUTING_FACTOR_VEHICLE_1'].value_counts().head(10).index.tolist()
         
+        # Filter data to include only top vehicles and factors, excluding unknowns
         vehicle_factor_df = df[
             (df['VEHICLE_TYPE_CODE_1'].isin(top_vehicles)) & 
             (df['CONTRIBUTING_FACTOR_VEHICLE_1'].isin(top_factors)) &
@@ -879,8 +893,10 @@ def update_dashboard(n_clicks, search_query, boroughs, years, vehicles, persons,
         ]
         
         if len(vehicle_factor_df) > 0:
+            # Count crashes for each vehicle-factor combination
             vf_counts = vehicle_factor_df.groupby(['VEHICLE_TYPE_CODE_1', 'CONTRIBUTING_FACTOR_VEHICLE_1']).size().reset_index(name='COUNT')
             
+            # Create bubble chart with size and color representing crash frequency
             vehicle_factor_scatter = px.scatter(
                 vf_counts,
                 x='VEHICLE_TYPE_CODE_1',
