@@ -1,127 +1,309 @@
 The German International University
 Faculty of Informatics and Computer Science
-Dr. Nada Sharaf
-TA. Mariam Ali
-TA. May Magdy
-TA. Mohamed Abdelsatar
 
+🚗 NYC Motor Vehicle Collisions — Interactive Data Visualization
 
-Data Engineering and Visualization, Winter Semester 2025
+Milestone 1 — Data Engineering & Visualization
 
-Project Milestone 1
-Submission Date: Friday 21/11/2025
+Course: Data Engineering and Visualization (Winter Semester 2025)
+Instructors / TAs: Dr. Nada Sharaf, Mariam Ali (TA), May Magdy (TA), Mohamed Abdelsatar (TA)
+Submission Date: November 21, 2025
 
-Project Overview:
-The goal of this project is to navigate the complete data engineering process using a real-world dataset on
-motor vehicle collisions in New York City. You will explore, clean, integrate, and then build an interactive
-website to visualize insights in a dynamic report. 
+📋 Project Overview
 
-The datasets are:
+This project delivers a fully interactive web application to explore and analyze NYC motor vehicle collision data. The system integrates both crash-level and person-level datasets from NYC Open Data, enabling users to filter, visualize, and extract insights about traffic safety patterns across New York City.
 
-• NYC Motor Vehicle Collisions - Crashes: Available at https://data.cityofnewyork.us/
-Public-Safety/Motor-Vehicle-Collisions-Crashes/h9gi-nx95/data_preview. This dataset contains over 2 million crash records (2012 to 2025), with columns like crash date/time, location (latitude/longitude, borough, zip code), injuries, fatalities, contributing factors, and vehicle types. It
-is raw, with missing values, outliers, and inconsistencies requiring robust cleaning.
+⭐ Key Features
 
-• Integrate with a related dataset called Motor Vehicle Collisions - Person or Motor Vehicle
-Collisions - Vehicles using the common column COLLISION_ID:
-https://data.cityofnewyork.us/Public-Safety/Motor-Vehicle-Collisions-Person/f55k-p6yu/
-data_preview or
-https://data.cityofnewyork.us/Public-Safety/Motor-Vehicle-Collisions-Vehicles/bm4k-52h4/
-data_preview.
-Project Team (from 4 to 5 people per group)
-Each team member must propose at least 2 research questions (e.g., Which borough has the highest
-crash rate per capita); a 4-member team needs 8, and a 5-member team needs 10. Clearly indicate each
-members contributions (e.g., research questions, cleaning tasks, website components).
-No extensions will be granted for milestone due dates. Late submissions will not be graded. If you
-anticipate issues (e.g., travel), email the instructor at least one week in advance.
-Getting Started: Loading the Datasets
-Add the following code to your Jupyter/Colab notebook to load the datasets directly from NYC Open
-Data:
-1 import pandas as pd
-2
-3 # Load crashes dataset
-4 crashes_url = ’https :// data . cityofnewyork .us/ api / views /h9gi - nx95 / rows . csv ? accessType =
-download ’
-5 df_crashes = pd . read_csv ( crashes_url , low_memory = False )
-6
-7 # Load persons dataset
-1
-8 persons_url = ’https :// data . cityofnewyork .us/ api / views /f55k - p6yu / rows . csv ? accessType =
-download ’
-9 df_persons = pd . read_csv ( persons_url , low_memory = False )
-10
-11 # Quick preview
-12 df_crashes . head ()
-13 df_persons . head ()
-Listing 1: Loading Crashes and Persons Datasets
-Milestone 1: Cleaning, Integration, and Visualization
-In this milestone, you will:
-• Explore the Data: Use descriptive statistics and initial plots to understand the datasets structure,
-issues, and patterns.
-• Clean the Data (Pre-Integration):
-– Handle missing values (justify drop vs. impute).
-– Detect and address outliers (e.g., IQR, domain rules).
-– Standardize formats (dates, strings, categories).
-– Remove duplicates.
-• Integrate Additional Data: Join with related NYC Open Data table (Person via COLLISION_ID). Document integration steps and justify choices.
-• Post-Integration Cleaning (Required): After joining, resolve:
-– New missing values from joins.
-– Inconsistent or redundant columns.
-– Data type mismatches.
-• Build an Interactive Website: Create a fully interactive data visualization website using Dash
-(Python/Plotly) or any web framework such as React with Plotly.js, Flask, or Django. The
-website should provide an engaging and dynamic way for users to explore and generate insights
-from the integrated dataset.
-The website must include the following structure and functionality:
-– Multiple dropdown filters (e.g., Borough, Year, Vehicle Type, Contributing Factor, Injury
-Type) allowing users to dynamically filter data.
-– A search mode, where users can type queries (e.g., “Brooklyn 2022 pedestrian crashes”) to
-automatically apply filters.
-– A central “Generate Report” button that, when clicked, dynamically updates all visualizations based on selected filters or search terms.
-– Visualizations should include a variety of chart types, such as bar charts, line charts, heatmaps,
-maps, or pie charts, and must offer interactivity (hover, zoom, or filter updates).
-– Ensure that all components respond in real time to user interactions and that the website
-layout is user-friendly and visually consistent.
-– Host and test the website using a free deployment platform such as Vercel, Render, or
-Heroku, and confirm full functionality before submission.
-2
-The Grades Will Be Given For:
-• Implementation:
-– Thorough exploratory data analysis (EDA) with relevant statistics and visualizations.
-– Effective pre- and post-integration cleaning (e.g., appropriate handling of missing values,
-outliers, and inconsistencies).
-– Quality of integration: clear joins, justified data sources, and added value.
-– Relevance and interactivity of website visualizations (e.g., do dropdowns + Generate Report
-button drive meaningful updates?).
-– Complexity and originality of research questions (e.g., avoid simplistic counts; aim for insights
-like predictive patterns or spatial trends).
-• Descriptive Markdown Cells: Document exploration, cleaning, and integration steps. Justify
-decisions (e.g., why drop vs. impute nulls?), discuss alternatives considered, and explain how insights
-were reached.
-• Clean Code: Use descriptive variable names, modular functions, and clear structure.
-• Code Comments: Comment on complex logic (e.g., outlier detection algorithms, integration joins).
-• Deductions for:
-– Poor contribution documentation.
-– Inappropriate plot choices or unclear labels.
-– Messy or uncommented code.
-– Incorrect or trivial conclusions.
-– Missing “Generate Report” button or post-integration cleaning.
-Deliverables
-• A Jupyter/Colab notebook containing:
-– Dataset overview (e.g., size, columns, known issues).
-– Detailed steps for EDA, pre-integration cleaning, integration, and post-integration
-cleaning.
-– Visualizations supporting data understanding and validation of cleaning steps.
-• A functional website demonstrating interactive exploration and reporting, including:
-– Dropdown-based filtering, search mode, and Generate Report interactivity.
-– Deployed version (e.g., on Vercel) and full source code in a GitHub repository.
-– A README file that includes setup steps, deployment instructions, and a short description
-of each team members contribution.
-Submission Instructions
-All project code, notebooks, and website files must be hosted on a GitHub repository. Each team
-member must be added to the same repository and have visible contributions (commits or pull requests).
-Submit your GitHub repository link through the submission form.
-Ensure your submission includes all required files in the GitHub repository before the deadline. Changes
-after the deadline (21/11/2025) will not be considered. Further submission details will be announced
-later.
-3
+Multi-dimensional filtering
+
+Natural-language search
+
+Interactive dashboard (Plotly / Dash)
+
+Geographic mapping
+
+Crash, person, and vehicle-level metrics
+
+KPI cards and statistical summaries
+
+CSV export of filtered datasets
+
+📊 Datasets
+1. Motor Vehicle Collisions — Crashes
+
+Source: NYC Open Data (h9gi-nx95)
+Each row = one crash reported by NYPD.
+
+Inclusion Criteria
+
+≥ 1 person injured or killed, OR
+
+Property damage ≥ $1,000
+
+Requires official MV104-AN police report
+
+Crash Dataset Schema
+Column	API Field	Description	Type
+CRASH_DATE	crash_date	Collision date	Timestamp
+CRASH_TIME	crash_time	Collision time	Text
+BOROUGH	borough	NYC borough	Text
+ZIP_CODE	zip_code	Postal code	Text
+LATITUDE	latitude	Geographic latitude	Float
+LONGITUDE	longitude	Geographic longitude	Float
+LOCATION	location	(Lat, Long) pair	Location
+ON_STREET_NAME	on_street_name	Primary street	Text
+CROSS_STREET_NAME	cross_street_name	Cross street	Text
+OFF_STREET_NAME	off_street_name	Off-street address	Text
+NUMBER_OF_PERSONS_INJURED	number_of_persons_injured	Total injured	Number
+NUMBER_OF_PERSONS_KILLED	number_of_persons_killed	Total killed	Number
+NUMBER_OF_PEDESTRIANS_INJURED	number_of_pedestrians_injured	Pedestrians injured	Number
+NUMBER_OF_PEDESTRIANS_KILLED	number_of_pedestrians_killed	Pedestrians killed	Number
+NUMBER_OF_CYCLIST_INJURED	number_of_cyclist_injured	Cyclists injured	Number
+NUMBER_OF_CYCLIST_KILLED	number_of_cyclist_killed	Cyclists killed	Number
+NUMBER_OF_MOTORIST_INJURED	number_of_motorist_injured	Motorists injured	Number
+NUMBER_OF_MOTORIST_KILLED	number_of_motorist_killed	Motorists killed	Number
+CONTRIBUTING_FACTOR_VEHICLE_1–5	contributing_factor_vehicle_X	Primary crash causes	Text
+COLLISION_ID	collision_id	Unique crash ID	Number
+VEHICLE_TYPE_CODE_1–5	vehicle_type_code_X	Vehicle types	Text
+2. Motor Vehicle Collisions — Person
+
+Source: NYC Open Data (f55k-p6yu)
+Each row = one person involved in a crash (driver, cyclist, pedestrian, passenger)
+
+Dataset Info
+
+Size: ~5.83 million rows
+
+Columns: 21
+
+Person Dataset Schema
+Column	Description	Type
+UNIQUE_ID	Unique person-level ID	Number
+COLLISION_ID	Foreign key referencing crash table	Number
+CRASH_DATE	Date of crash	Timestamp
+CRASH_TIME	Time of crash	Text
+PERSON_ID	Person identifier	Text
+PERSON_TYPE	Driver / Pedestrian / Cyclist / Occupant	Text
+PERSON_INJURY	Injury severity	Text
+VEHICLE_ID	Vehicle reference	Text
+PERSON_AGE	Age	Number
+EJECTION	Ejection status	Text
+EMOTIONAL_STATUS	Emotional/physical state	Text
+BODILY_INJURY	Injured body region	Text
+POSITION_IN_VEHICLE	Seating position	Text
+SAFETY_EQUIPMENT	Airbag/seatbelt usage	Text
+PED_LOCATION	Pedestrian location	Text
+PED_ACTION	Pedestrian action	Text
+COMPLAINT	Physical complaint	Text
+PED_ROLE	Pedestrian role	Text
+CONTRIBUTING_FACTOR_1/2	Crash causes	Text
+PERSON_SEX	Gender	Text
+🏗 Architecture & Pipeline
+1. Data Ingestion
+
+Download datasets via NYC Open Data API
+
+Load into pandas
+
+Log ingestion metadata
+
+2. Pre-Integration Cleaning (Crash Dataset)
+
+Exploratory Data Analysis (EDA)
+
+Missing value profiling and treatment
+
+Outlier detection (IQR, domain rules)
+
+Standardize date & time formats
+
+Remove duplicates via COLLISION_ID
+
+3. Integration (Crashes + Person)
+
+Join on COLLISION_ID
+
+Validate 1-to-many relationships
+
+Track unmatched rows & join-induced data loss
+
+4. Post-Integration Cleaning
+
+Fix data type mismatches
+
+Handle missing values introduced by the join
+
+Remove redundant/inconsistent columns
+
+Create derived features (severity metrics, categories)
+
+5. Backend (FastAPI / Flask)
+
+Endpoints for aggregated crash statistics
+
+Query filtering by borough, vehicle type, injury type, etc.
+
+Caching for repeated queries
+
+6. Frontend (Plotly Dash)
+
+Multi-filter interactive dashboard
+
+KPI cards
+
+Time-series trends
+
+Borough comparisons
+
+Heatmaps and geographic maps
+
+Natural-language search interpretation
+
+7. Deployment
+
+Deploy using Vercel, Render, or Heroku
+
+CI/CD automatic deployment workflow
+
+🎨 Dashboard Features
+Filters
+
+Borough
+
+Year
+
+Person Type
+
+Injury Type
+
+Vehicle Type
+
+Contributing Factor
+
+Natural-language search
+
+Visualizations
+
+KPI Cards (total crashes, injuries, fatalities)
+
+Bar Charts (borough, vehicle type, contributing factors)
+
+Line Charts (yearly and monthly trends)
+
+Heatmap (day × hour intensity)
+
+Geographic Map (lat/long cluster)
+
+Pie charts
+
+Optional small multiples
+
+Interactivity
+
+Dashboard updates only on Generate Report
+
+Reset filters
+
+Live search interpretation
+
+CSV export
+
+🔍 Natural Language Search
+
+The parser intelligently extracts:
+
+Recognizes
+
+Boroughs: Brooklyn, Queens, Manhattan…
+
+Years: 2020, 2021…
+
+Person types: pedestrian, cyclist, driver…
+
+Injury keywords: fatal, injured, killed…
+
+Vehicle types: truck, sedan, SUV…
+
+Contributing factors: alcohol, speeding, distracted…
+
+Example Input
+
+"Show pedestrian crashes in Brooklyn in 2022"
+Interpreted as:
+
+Borough = Brooklyn
+
+Person Type = Pedestrian
+
+Year = 2022
+
+📈 Research Questions
+#	Research Question	Visualization
+RQ1	Which borough has the highest number of crashes in the past 5 years?	Bar Chart
+RQ2	Are crashes increasing or decreasing over time?	Line Chart
+RQ3	Evolution of crashes, injuries, and fatalities by borough	Multi-line Chart
+RQ4	Which vehicle types are most linked to severe injuries/fatalities?	Stacked Bar
+RQ5	Do contributing factors vary significantly across boroughs?	Grouped Bar / Heatmap
+RQ6	Injury likelihood by person type	Grouped Bar
+RQ7	Gender vs injury likelihood (controlled by person type & borough)	Faceted Bar
+RQ8	Pedestrian and cyclist crash trends over time	Multi-line Chart
+RQ9	Relationship between vehicle type & injury type	Grouped Bar
+RQ10	Vehicle type involvement across boroughs over time	Heatmap / Small Multiples
+
+👥 Team Contributions
+Abdelmonem Sayed (13006494)
+
+Data ingestion and retrieval
+
+Exploratory Data Analysis (EDA)
+
+Pre-integration cleaning
+
+Research questions:
+
+Borough crash rate per capita
+
+Pedestrian crashes by hour of day
+
+Ramez Mokbil
+
+Crash–Person dataset integration (COLLISION_ID)
+
+Derived feature engineering
+
+Aggregation logic for backend analytics
+
+Data integrity checks
+
+Seif Saad
+
+Backend API architecture (FastAPI/Flask)
+
+Caching layer for performance
+
+Deployment & CI/CD setup
+
+Eyad Ahmed (13005238)
+
+Frontend dashboard and visual components
+
+Interactive visualizations (Plotly)
+
+Natural-language search parser
+
+Project documentation and README writing
+
+Ahmed Amr
+
+Frontend visualization refinement (charts, KPIs, layout)
+
+Research question formulation
+
+README structuring and documentation
+
+Post-integration cleaning and validation
+
+Handling join-induced missing values
+
+Resolving redundant or inconsistent columns after integration
