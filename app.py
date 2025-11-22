@@ -15,80 +15,34 @@ server = app.server
 # Load data once at startup (not in callback)
 print("Loading data...")
 try:
-    # Define essential columns only
-    usecols = [
-        'CRASH_DATE_x', 'BOROUGH', 'LATITUDE', 'LONGITUDE',
-        'NUMBER_OF_PERSONS_INJURED', 'NUMBER_OF_PERSONS_KILLED',
-        'CONTRIBUTING_FACTOR_VEHICLE_1', 'COLLISION_ID',
-        'VEHICLE_TYPE_CODE_1', 'PERSON_TYPE', 'PERSON_SEX', 'PERSON_INJURY'
-    ]
-    
-    # Define efficient data types
-    dtype_dict = {
-        'BOROUGH': 'category',
-        'VEHICLE_TYPE_CODE_1': 'category',
-        'CONTRIBUTING_FACTOR_VEHICLE_1': 'category',
-        'PERSON_TYPE': 'category',
-        'PERSON_SEX': 'category',
-        'PERSON_INJURY': 'category',
-        'NUMBER_OF_PERSONS_INJURED': 'float32',
-        'NUMBER_OF_PERSONS_KILLED': 'float32',
-        'LATITUDE': 'float32',
-        'LONGITUDE': 'float32'
-    }
-    
-    # Try to load from D: drive first, then fall back to local
-    csv_paths = [
-        'D:\\cleaned_merged_data.csv',
-        'D:\\NYC-CrashLens\\cleaned_merged_data.csv',
-        'cleaned_merged_data.csv'
-    ]
-    
-    csv_path = 'cleaned_merged_data.csv'
-    for path in csv_paths:
-        try:
-            if pd.io.common.file_exists(path):
-                csv_path = path
-                print(f"Using CSV from: {csv_path}")
-                break
-        except:
-            continue
-    
-    # Load all data in chunks
-    print("Loading all data in chunks...")
-    chunks = []
-    chunk_size = 100000
-    
-    for i, chunk in enumerate(pd.read_csv(csv_path, 
-                                          usecols=usecols, 
-                                          dtype=dtype_dict,
-                                          parse_dates=['CRASH_DATE_x'],
-                                          chunksize=chunk_size)):
-        chunk['YEAR'] = chunk['CRASH_DATE_x'].dt.year.astype('int16')
-        chunks.append(chunk)
-        print(f"Chunk {i+1}: {len(chunk)} rows loaded")
-    
-    print("Concatenating chunks...")
-    df_global = pd.concat(chunks, ignore_index=True)
-    del chunks  # Free memory
-    print(f"All chunks concatenated")
-    print(f"Data loaded successfully. Shape: {df_global.shape}")
+    # Load the STANDARDIZED dataset instead of merged
+    df_global = pd.read_csv('cleaned_merged_standardized_data.csv', low_memory=False)
+    print(f"Standardized data loaded successfully. Shape: {df_global.shape}")
     
     # Data preparation - YEAR already added in chunks
     if 'YEAR' not in df_global.columns:
         df_global['YEAR'] = df_global['CRASH_DATE_x'].dt.year
     df_global['YEAR'] = df_global['YEAR'].astype('int16')
     
-    # Convert to category and handle NaN - simpler approach
-    for col in ['BOROUGH', 'VEHICLE_TYPE_CODE_1', 'CONTRIBUTING_FACTOR_VEHICLE_1', 'PERSON_TYPE', 'PERSON_SEX']:
-        # Convert to category if not already
-        if df_global[col].dtype.name != 'category':
-            df_global[col] = df_global[col].astype('category')
-        
-        # Add Unknown category if needed and fill NaN
-        if 'Unknown' not in df_global[col].cat.categories:
-            df_global[col] = df_global[col].cat.add_categories('Unknown')
-        df_global[col] = df_global[col].fillna('Unknown')
+    # Convert to string and handle NaN - standardized values should already be consistent
+    # The standardized dataset already has cleaned categorical values
+    df_global['BOROUGH'] = df_global['BOROUGH'].astype(str).replace('nan', 'Unknown')
+    df_global['VEHICLE_TYPE_CODE_1'] = df_global['VEHICLE_TYPE_CODE_1'].astype(str).replace('nan', 'Unknown')
+    df_global['CONTRIBUTING_FACTOR_VEHICLE_1'] = df_global['CONTRIBUTING_FACTOR_VEHICLE_1'].astype(str).replace('nan', 'Unknown')
+    df_global['PERSON_TYPE'] = df_global['PERSON_TYPE'].astype(str).replace('nan', 'Unknown')
+    
+    # CRITICAL FIX #1: Properly handle PERSON_SEX standardization
+    # The standardized dataset should have M/F values, but let's ensure consistency
+    df_global['PERSON_SEX'] = df_global['PERSON_SEX'].astype(str).str.upper().str.strip()
+    df_global['PERSON_SEX'] = df_global['PERSON_SEX'].replace({
+        'MALE': 'M',
+        'FEMALE': 'F',
+        'NAN': 'Unknown',
+        'UNKNOWN': 'Unknown',
+        'U': 'Unknown'
+    })
+    
+    df_global['PERSON_INJURY'] = df_global['PERSON_INJURY'].astype(str).replace('nan', 'Unknown')
     
     # Ensure numeric columns handle NaN
     df_global['NUMBER_OF_PERSONS_INJURED'] = df_global['NUMBER_OF_PERSONS_INJURED'].fillna(0)
@@ -97,12 +51,24 @@ try:
     print("Column names:", df_global.columns.tolist())
     print("Borough unique values:", df_global['BOROUGH'].unique()[:10])
     print("Years available:", sorted(df_global['YEAR'].dropna().unique()))
+    print("Vehicle types (standardized):", df_global['VEHICLE_TYPE_CODE_1'].value_counts().head(10))
+    print("Person types (standardized):", df_global['PERSON_TYPE'].value_counts())
+    
+    # CRITICAL FIX #2: Check gender distribution
+    print("\n=== GENDER DISTRIBUTION CHECK ===")
+    print(f"PERSON_SEX value counts:\n{df_global['PERSON_SEX'].value_counts()}")
+    print(f"Total records: {len(df_global)}")
+    print(f"Records with M: {len(df_global[df_global['PERSON_SEX'] == 'M'])}")
+    print(f"Records with F: {len(df_global[df_global['PERSON_SEX'] == 'F'])}")
+    print(f"Records with Unknown gender: {len(df_global[df_global['PERSON_SEX'] == 'Unknown'])}")
     
 except Exception as e:
     print(f"Error loading data: {e}")
+    import traceback
+    traceback.print_exc()
     df_global = pd.DataFrame()
 
-# Search function
+# CRITICAL FIX #3: Enhanced search function with proper gender handling
 def parse_search_query(query, df):
     """Parse natural language search queries"""
     if not query or query.strip() == "":
@@ -114,13 +80,39 @@ def parse_search_query(query, df):
     print(f"Parsing search query: '{query}'")
     print(f"Initial dataframe size: {len(filtered_df)}")
     
-    # Borough detection
-    boroughs = ['manhattan', 'brooklyn', 'queens', 'bronx', 'staten island']
-    for borough in boroughs:
-        if borough in query:
-            print(f"Filtering by borough: {borough}")
-            filtered_df = filtered_df[filtered_df['BOROUGH'].str.lower().str.contains(borough, na=False)]
+    # Borough detection - using standardized borough names
+    borough_mapping = {
+        'manhattan': 'MANHATTAN',
+        'brooklyn': 'BROOKLYN',
+        'queens': 'QUEENS',
+        'bronx': 'BRONX',
+        'staten island': 'STATEN ISLAND',
+        'staten': 'STATEN ISLAND'
+    }
+    
+    for search_term, standard_borough in borough_mapping.items():
+        if search_term in query:
+            print(f"Filtering by borough: {standard_borough}")
+            filtered_df = filtered_df[filtered_df['BOROUGH'] == standard_borough]
             print(f"After borough filter: {len(filtered_df)}")
+            break
+    
+    # CRITICAL FIX #4: Add gender detection to search query
+    gender_keywords = {
+        'male': 'M',
+        'man': 'M',
+        'men': 'M',
+        'female': 'F',
+        'woman': 'F',
+        'women': 'F'
+    }
+    
+    for keyword, gender_code in gender_keywords.items():
+        if keyword in query:
+            print(f"Filtering by gender keyword '{keyword}' -> '{gender_code}'")
+            filtered_df = filtered_df[filtered_df['PERSON_SEX'] == gender_code]
+            print(f"After gender filter: {len(filtered_df)}")
+            break  # Only apply first gender match
     
     # Year detection
     year_match = re.findall(r'\b(20\d{2})\b', query)
@@ -130,33 +122,67 @@ def parse_search_query(query, df):
         filtered_df = filtered_df[filtered_df['YEAR'] == year]
         print(f"After year filter: {len(filtered_df)}")
     
-    # Keywords for person types
+    # Keywords for person types - using standardized values
     if 'pedestrian' in query:
         print("Filtering by pedestrian")
-        print("Person type values:", filtered_df['PERSON_TYPE'].unique()[:10])
-        filtered_df = filtered_df[filtered_df['PERSON_TYPE'].str.lower().str.contains('pedestrian', na=False)]
+        filtered_df = filtered_df[filtered_df['PERSON_TYPE'] == 'PEDESTRIAN']
         print(f"After pedestrian filter: {len(filtered_df)}")
     
-    if 'cyclist' in query or 'bicycle' in query:
+    if 'cyclist' in query or 'bicycle' in query or 'bike' in query:
         print("Filtering by cyclist")
-        filtered_df = filtered_df[filtered_df['PERSON_TYPE'].str.lower().str.contains('cyclist|bicycle', na=False)]
+        filtered_df = filtered_df[filtered_df['PERSON_TYPE'] == 'BICYCLIST']
         print(f"After cyclist filter: {len(filtered_df)}")
     
     if 'driver' in query:
         print("Filtering by driver")
-        filtered_df = filtered_df[filtered_df['PERSON_TYPE'].str.lower().str.contains('driver', na=False)]
+        filtered_df = filtered_df[filtered_df['PERSON_TYPE'] == 'DRIVER']
         print(f"After driver filter: {len(filtered_df)}")
     
-    # Injury keywords
+    if 'passenger' in query:
+        print("Filtering by passenger")
+        filtered_df = filtered_df[filtered_df['PERSON_TYPE'] == 'PASSENGER']
+        print(f"After passenger filter: {len(filtered_df)}")
+    
+    # Injury keywords - using standardized injury values
     if 'injured' in query or 'injury' in query:
         print("Filtering by injuries")
-        filtered_df = filtered_df[filtered_df['NUMBER_OF_PERSONS_INJURED'] > 0]
+        filtered_df = filtered_df[
+            (filtered_df['NUMBER_OF_PERSONS_INJURED'] > 0) | 
+            (filtered_df['PERSON_INJURY'] == 'INJURED')
+        ]
         print(f"After injury filter: {len(filtered_df)}")
+    
+    if 'uninjured' in query:
+        print("Filtering by uninjured")
+        filtered_df = filtered_df[filtered_df['PERSON_INJURY'] == 'UNINJURED']
+        print(f"After uninjured filter: {len(filtered_df)}")
     
     if 'killed' in query or 'fatal' in query or 'death' in query:
         print("Filtering by fatalities")
-        filtered_df = filtered_df[filtered_df['NUMBER_OF_PERSONS_KILLED'] > 0]
+        filtered_df = filtered_df[
+            (filtered_df['NUMBER_OF_PERSONS_KILLED'] > 0) | 
+            (filtered_df['PERSON_INJURY'] == 'KILLED')
+        ]
         print(f"After fatality filter: {len(filtered_df)}")
+    
+    # Vehicle type keywords - using standardized values
+    vehicle_keywords = {
+        'taxi': 'TAXI',
+        'sedan': 'SEDAN',
+        'suv': 'SPORT UTILITY / STATION WAGON',
+        'truck': 'PICK-UP TRUCK',
+        'van': 'VAN',
+        'bus': 'BUS',
+        'motorcycle': 'MOTORCYCLE',
+        'bicycle': 'BICYCLE'
+    }
+    
+    for keyword, standard_vehicle in vehicle_keywords.items():
+        if keyword in query:
+            print(f"Filtering by vehicle type: {standard_vehicle}")
+            filtered_df = filtered_df[filtered_df['VEHICLE_TYPE_CODE_1'] == standard_vehicle]
+            print(f"After vehicle filter: {len(filtered_df)}")
+            break
     
     print(f"Final filtered dataframe size: {len(filtered_df)}")
     return filtered_df
@@ -336,7 +362,7 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col([
             html.H1("NYC CrashLens Dashboard", className="text-center mb-4"),
-            html.P("Interactive exploration of NYC crash data", className="text-center text-muted")
+            html.P("Interactive exploration of NYC crash data (Standardized Dataset)", className="text-center text-muted")
         ])
     ]),
     
@@ -365,17 +391,17 @@ app.layout = dbc.Container([
             # Second row of charts
             dbc.Row([
                 dbc.Col([
-                    dcc.Graph(id="vehicle-type-pie-chart")
+                    dcc.Graph(id="person-type-pie-chart")
                 ], width=6),
                 dbc.Col([
                     dcc.Graph(id="contributing-factor-bar-chart")
                 ], width=6)
             ]),
             
-            # Third row - Person Type and Gender comparison
+            # Third row - Vehicle type bar chart and Gender comparison
             dbc.Row([
                 dbc.Col([
-                    dcc.Graph(id="person-type-pie-chart")
+                    dcc.Graph(id="vehicle-type-bar-chart")
                 ], width=6),
                 dbc.Col([
                     dcc.Graph(id="gender-comparison-chart")
@@ -407,50 +433,53 @@ def update_dropdown_options(_):
     if df_global.empty:
         return [], [], [], [], [], [], []
     
-    print("Updating dropdown options...")
+    print("Updating dropdown options from standardized dataset...")
     
-    # Borough options
+    # Borough options - standardized values
     boroughs = df_global['BOROUGH'].unique()
-    boroughs = [b for b in boroughs if str(b) not in ['Unknown', 'None', '', 'nan']]
+    boroughs = [b for b in boroughs if str(b) not in ['Unknown', 'UNKNOWN', 'None', '', 'nan']]
     borough_options = [{'label': str(b), 'value': str(b)} for b in sorted(boroughs)]
-    print(f"Borough options: {len(borough_options)}")
+    print(f"Borough options: {len(borough_options)} - {borough_options}")
     
     # Year options
     years = df_global['YEAR'].dropna().unique()
     year_options = [{'label': int(y), 'value': int(y)} for y in sorted(years)]
     print(f"Year options: {len(year_options)}")
     
-    # Vehicle type options (top 15)
+    # Vehicle type options - standardized values (top 15)
     vehicles = df_global['VEHICLE_TYPE_CODE_1'].value_counts().head(15).index.tolist()
-    vehicles = [v for v in vehicles if str(v) not in ['Unknown', 'None', '', 'nan']]
+    vehicles = [v for v in vehicles if str(v) not in ['Unknown', 'UNKNOWN', 'None', '', 'nan']]
     vehicle_options = [{'label': str(v), 'value': str(v)} for v in vehicles]
-    print(f"Vehicle options: {len(vehicle_options)}")
+    print(f"Vehicle options (standardized): {len(vehicle_options)} - {[v['label'] for v in vehicle_options]}")
     
-    # Person type options
+    # Person type options - standardized values
     persons = df_global['PERSON_TYPE'].unique()
-    persons = [p for p in persons if str(p) not in ['Unknown', 'None', '', 'nan']]
+    persons = [p for p in persons if str(p) not in ['Unknown', 'UNKNOWN', 'None', '', 'nan']]
     person_options = [{'label': str(p), 'value': str(p)} for p in sorted(persons)]
-    print(f"Person options: {len(person_options)}")
+    print(f"Person options (standardized): {len(person_options)} - {[p['label'] for p in person_options]}")
     
-    # Gender options
-    gender_options = [
-        {'label': 'Male', 'value': 'M'},
-        {'label': 'Female', 'value': 'F'}
-    ]
-    print(f"Gender options: {len(gender_options)}")
+    # Gender options - simple labels without counts
+    gender_counts = df_global['PERSON_SEX'].value_counts()
+    gender_options = []
+    if gender_counts.get('M', 0) > 0:
+        gender_options.append({'label': 'Male', 'value': 'M'})
+    if gender_counts.get('F', 0) > 0:
+        gender_options.append({'label': 'Female', 'value': 'F'})
     
-    # Contributing Factor options (top 15)
+    print(f"Gender options: {gender_options}")
+    
+    # Contributing Factor options - standardized values (top 15)
     factors = df_global['CONTRIBUTING_FACTOR_VEHICLE_1'].value_counts().head(15).index.tolist()
-    factors = [f for f in factors if str(f) not in ['Unknown', 'None', '', 'nan', 'UNSPECIFIED']]
+    factors = [f for f in factors if str(f) not in ['Unknown', 'UNKNOWN', 'None', '', 'nan', 'UNSPECIFIED']]
     contributing_factor_options = [{'label': str(f), 'value': str(f)} for f in factors]
-    print(f"Contributing Factor options: {len(contributing_factor_options)}")
+    print(f"Contributing Factor options (standardized): {len(contributing_factor_options)}")
     
-    # Injury Type options
+    # Injury Type options - standardized values
     if 'PERSON_INJURY' in df_global.columns:
         injuries = df_global['PERSON_INJURY'].unique()
-        injuries = [i for i in injuries if str(i) not in ['Unknown', 'None', '', 'nan']]
+        injuries = [i for i in injuries if str(i) not in ['Unknown', 'UNKNOWN', 'None', '', 'nan']]
         injury_type_options = [{'label': str(i), 'value': str(i)} for i in sorted(injuries)]
-        print(f"Injury Type options: {len(injury_type_options)}")
+        print(f"Injury Type options (standardized): {len(injury_type_options)} - {[i['label'] for i in injury_type_options]}")
     else:
         injury_type_options = []
         print("PERSON_INJURY column not found")
@@ -482,9 +511,9 @@ def reset_filters(n_clicks):
      Output('most-dangerous-borough', 'children'),
      Output('borough-bar-chart', 'figure'),
      Output('time-series-chart', 'figure'),
-     Output('vehicle-type-pie-chart', 'figure'),
-     Output('contributing-factor-bar-chart', 'figure'),
      Output('person-type-pie-chart', 'figure'),
+     Output('contributing-factor-bar-chart', 'figure'),
+     Output('vehicle-type-bar-chart', 'figure'),
      Output('gender-comparison-chart', 'figure'),
      Output('crash-map', 'figure')],
     Input('generate-report-btn', 'n_clicks'),
@@ -504,286 +533,345 @@ def update_dashboard(n_clicks, search_query, boroughs, years, vehicles, persons,
         empty_fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
         return "0", "0", "0", "N/A", empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
     
-    df = df_global.copy()
-    print(f"\n=== Update Dashboard Called ===")
-    print(f"Initial data shape: {df.shape}")
-    print(f"Search query: {search_query}")
-    print(f"Borough filter: {boroughs}")
-    print(f"Year filter: {years}")
-    print(f"Vehicle filter: {vehicles}")
-    print(f"Person filter: {persons}")
-    print(f"Gender filter: {genders}")
-    print(f"Contributing Factor filter: {contributing_factors}")
-    print(f"Injury Type filter: {injury_types}")
-    
-    # Apply search filter first
-    if search_query and search_query.strip():
-        df = parse_search_query(search_query, df)
-    
-    # Apply dropdown filters
-    if boroughs:
-        df = df[df['BOROUGH'].isin([str(b) for b in boroughs])]
-        print(f"After borough dropdown filter: {df.shape}")
-    
-    if years:
-        df = df[df['YEAR'].isin([int(y) for y in years])]
-        print(f"After year filter: {df.shape}")
-    
-    if vehicles:
-        df = df[df['VEHICLE_TYPE_CODE_1'].isin([str(v) for v in vehicles])]
-        print(f"After vehicle filter: {df.shape}")
-    
-    if persons:
-        df = df[df['PERSON_TYPE'].isin([str(p) for p in persons])]
-        print(f"After person filter: {df.shape}")
-    
-    if genders:
-        df = df[df['PERSON_SEX'].isin([str(g) for g in genders])]
-        print(f"After gender filter: {df.shape}")
-    
-    if contributing_factors:
-        df = df[df['CONTRIBUTING_FACTOR_VEHICLE_1'].isin([str(c) for c in contributing_factors])]
-        print(f"After contributing factor filter: {df.shape}")
-    
-    if injury_types and 'PERSON_INJURY' in df.columns:
-        df = df[df['PERSON_INJURY'].isin([str(i) for i in injury_types])]
-        print(f"After injury type filter: {df.shape}")
-    
-    # Calculate KPIs
-    total_crashes = len(df)
-    total_injuries = int(df['NUMBER_OF_PERSONS_INJURED'].sum())
-    total_fatalities = int(df['NUMBER_OF_PERSONS_KILLED'].sum())
-    
-    # Most dangerous borough
-    if len(df) > 0:
-        borough_danger = df.groupby('BOROUGH')['NUMBER_OF_PERSONS_KILLED'].sum()
-        borough_danger = borough_danger[borough_danger.index != 'Unknown']
-        most_dangerous = borough_danger.idxmax() if len(borough_danger) > 0 and borough_danger.max() > 0 else "N/A"
-    else:
-        most_dangerous = "N/A"
-    
-    # 1. Borough Bar Chart
-    if len(df) > 0:
-        borough_counts = df['BOROUGH'].value_counts().head(10)
-        borough_bar_fig = px.bar(
-            x=borough_counts.index,
-            y=borough_counts.values,
-            title="Crashes by Borough (Top 10)",
-            labels={'x': 'Borough', 'y': 'Number of Crashes'},
-            color=borough_counts.values,
-            color_continuous_scale='Reds'
-        )
-        borough_bar_fig.update_layout(
-            xaxis_title="Borough",
-            yaxis_title="Number of Crashes",
-            showlegend=False
-        )
-    else:
-        borough_bar_fig = go.Figure()
-        borough_bar_fig.add_annotation(text="No data matches the selected filters", x=0.5, y=0.5, showarrow=False)
-    
-    # 2. Time series chart
-    if len(df) > 0 and 'YEAR' in df.columns:
-        yearly_counts = df['YEAR'].value_counts().sort_index()
-        time_fig = px.line(
-            x=yearly_counts.index,
-            y=yearly_counts.values,
-            title="Crashes Over Time",
-            labels={'x': 'Year', 'y': 'Number of Crashes'},
-            markers=True
-        )
-        time_fig.update_layout(
-            xaxis_title="Year",
-            yaxis_title="Number of Crashes"
-        )
-    else:
-        time_fig = go.Figure()
-        time_fig.add_annotation(text="No temporal data available", x=0.5, y=0.5, showarrow=False)
-    
-    # 3. Vehicle Type Bar Chart
-    if len(df) > 0:
-        vehicle_counts = df['VEHICLE_TYPE_CODE_1'].value_counts().head(8)
-        # Filter out Unknown
-        vehicle_counts = vehicle_counts[vehicle_counts.index != 'Unknown']
+    try:
+        df = df_global.copy()
+        print(f"\n=== Update Dashboard Called (Standardized Data) ===")
+        print(f"Initial data shape: {df.shape}")
+        print(f"Search query: {search_query}")
+        print(f"Borough filter: {boroughs}")
+        print(f"Year filter: {years}")
+        print(f"Vehicle filter: {vehicles}")
+        print(f"Person filter: {persons}")
+        print(f"Gender filter: {genders}")
+        print(f"Contributing Factor filter: {contributing_factors}")
+        print(f"Injury Type filter: {injury_types}")
         
-        pie_fig = px.bar(
-            x=vehicle_counts.values,
-            y=vehicle_counts.index,
-            title="Vehicle Type Distribution (Top 8)",
-            labels={'x': 'Number of Crashes', 'y': 'Vehicle Type'},
-            orientation='h',
-            color=vehicle_counts.values,
-            color_continuous_scale='Viridis'
-        )
-        pie_fig.update_layout(
-            xaxis_title="Number of Crashes",
-            yaxis_title="Vehicle Type",
-            showlegend=False,
-            height=400
-        )
-    else:
-        pie_fig = go.Figure()
-        pie_fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
-    
-    # 4. Contributing Factor Bar Chart
-    if len(df) > 0:
-        factor_counts = df['CONTRIBUTING_FACTOR_VEHICLE_1'].value_counts().head(10)
-        # Filter out Unknown and Unspecified
-        factor_counts = factor_counts[~factor_counts.index.isin(['Unknown', 'UNSPECIFIED'])]
+        # Apply search filter first
+        if search_query and search_query.strip():
+            df = parse_search_query(search_query, df)
+            print(f"After search query: {df.shape}")
         
-        factor_bar_fig = px.bar(
-            x=factor_counts.values,
-            y=factor_counts.index,
-            title="Top Contributing Factors",
-            labels={'x': 'Number of Crashes', 'y': 'Contributing Factor'},
-            orientation='h',
-            color=factor_counts.values,
-            color_continuous_scale='Blues'
-        )
-        factor_bar_fig.update_layout(
-            xaxis_title="Number of Crashes",
-            yaxis_title="Contributing Factor",
-            showlegend=False,
-            height=400
-        )
-    else:
-        factor_bar_fig = go.Figure()
-        factor_bar_fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
-    
-    # 5. Person Type Pie Chart
-    if len(df) > 0 and 'PERSON_TYPE' in df.columns:
-        person_counts = df['PERSON_TYPE'].value_counts().head(8)
-        # Filter out Unknown
-        person_counts = person_counts[person_counts.index != 'Unknown']
+        # Apply dropdown filters - all using standardized values
+        if boroughs:
+            print(f"Applying borough filter: {boroughs}")
+            df = df[df['BOROUGH'].isin([str(b) for b in boroughs])]
+            print(f"After borough dropdown filter: {df.shape}")
         
-        if len(person_counts) > 0:
-            person_pie_fig = px.pie(
+        if years:
+            print(f"Applying year filter: {years}")
+            df = df[df['YEAR'].isin([int(y) for y in years])]
+            print(f"After year filter: {df.shape}")
+        
+        if vehicles:
+            print(f"Applying vehicle filter: {vehicles}")
+            df = df[df['VEHICLE_TYPE_CODE_1'].isin([str(v) for v in vehicles])]
+            print(f"After vehicle filter: {df.shape}")
+        
+        if persons:
+            print(f"Applying person filter: {persons}")
+            df = df[df['PERSON_TYPE'].isin([str(p) for p in persons])]
+            print(f"After person filter: {df.shape}")
+        
+        # CRITICAL FIX #8: Enhanced gender filtering with validation
+        if genders:
+            print(f"Applying gender filter: {genders}")
+            print(f"Before gender filter - PERSON_SEX values: {df['PERSON_SEX'].value_counts().to_dict()}")
+            df = df[df['PERSON_SEX'].isin([str(g) for g in genders])]
+            print(f"After gender filter: {df.shape}")
+            print(f"After gender filter - PERSON_SEX values: {df['PERSON_SEX'].value_counts().to_dict()}")
+        
+        if contributing_factors:
+            print(f"Applying contributing factor filter: {contributing_factors}")
+            df = df[df['CONTRIBUTING_FACTOR_VEHICLE_1'].isin([str(c) for c in contributing_factors])]
+            print(f"After contributing factor filter: {df.shape}")
+        
+        if injury_types and 'PERSON_INJURY' in df.columns:
+            print(f"Applying injury type filter: {injury_types}")
+            df = df[df['PERSON_INJURY'].isin([str(i) for i in injury_types])]
+            print(f"After injury type filter: {df.shape}")
+        
+        # Check if we have any data left
+        if len(df) == 0:
+            print("WARNING: No data remaining after filters!")
+            empty_fig = go.Figure()
+            empty_fig.add_annotation(
+                text="No data matches the selected filters.<br>Try adjusting your filter criteria.",
+                x=0.5, y=0.5,
+                showarrow=False,
+                font=dict(size=16)
+            )
+            return "0", "0", "0", "N/A", empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
+        
+        # Calculate KPIs
+        total_crashes = len(df)
+        total_injuries = int(df['NUMBER_OF_PERSONS_INJURED'].sum())
+        total_fatalities = int(df['NUMBER_OF_PERSONS_KILLED'].sum())
+        
+        # Most dangerous borough
+        if len(df) > 0:
+            borough_danger = df.groupby('BOROUGH')['NUMBER_OF_PERSONS_KILLED'].sum()
+            borough_danger = borough_danger[~borough_danger.index.isin(['Unknown', 'UNKNOWN'])]
+            most_dangerous = borough_danger.idxmax() if len(borough_danger) > 0 and borough_danger.max() > 0 else "N/A"
+        else:
+            most_dangerous = "N/A"
+        
+        # 1. Borough Bar Chart
+        if len(df) > 0:
+            borough_counts = df['BOROUGH'].value_counts().head(10)
+            # Exclude Unknown
+            borough_counts = borough_counts[~borough_counts.index.isin(['Unknown', 'UNKNOWN'])]
+            
+            borough_bar_fig = px.bar(
+                x=borough_counts.index,
+                y=borough_counts.values,
+                title="Crashes by Borough (Top 10)",
+                labels={'x': 'Borough', 'y': 'Number of Crashes'},
+                color=borough_counts.values,
+                color_continuous_scale='Reds'
+            )
+            borough_bar_fig.update_layout(
+                xaxis_title="Borough",
+                yaxis_title="Number of Crashes",
+                showlegend=False
+            )
+        else:
+            borough_bar_fig = go.Figure()
+            borough_bar_fig.add_annotation(text="No data matches the selected filters", x=0.5, y=0.5, showarrow=False)
+    
+        # 2. Time series chart
+        if len(df) > 0 and 'YEAR' in df.columns:
+            yearly_counts = df['YEAR'].value_counts().sort_index()
+            time_fig = px.line(
+                x=yearly_counts.index,
+                y=yearly_counts.values,
+                title="Crashes Over Time",
+                labels={'x': 'Year', 'y': 'Number of Crashes'},
+                markers=True
+            )
+            time_fig.update_layout(
+                xaxis_title="Year",
+                yaxis_title="Number of Crashes"
+            )
+        else:
+            time_fig = go.Figure()
+            time_fig.add_annotation(text="No temporal data available", x=0.5, y=0.5, showarrow=False)
+        
+        # 3. Person Type Pie Chart - using standardized values
+        if len(df) > 0:
+            person_counts = df['PERSON_TYPE'].value_counts().head(6)
+            # Filter out Unknown
+            person_counts = person_counts[~person_counts.index.isin(['Unknown', 'UNKNOWN'])]
+            
+            pie_fig = px.pie(
                 values=person_counts.values,
                 names=person_counts.index,
-                title="Person Type Distribution",
-                hole=0.3
+                title="Person Type Distribution (Standardized)",
+                hole=0.3  # Creates a donut chart
             )
-            person_pie_fig.update_traces(textposition='inside', textinfo='percent+label')
-            person_pie_fig.update_layout(height=400)
+            pie_fig.update_traces(textposition='inside', textinfo='percent+label')
         else:
-            person_pie_fig = go.Figure()
-            person_pie_fig.add_annotation(text="No person type data", x=0.5, y=0.5, showarrow=False)
-    else:
-        person_pie_fig = go.Figure()
-        person_pie_fig.add_annotation(text="No person type data", x=0.5, y=0.5, showarrow=False)
-    
-    # 6. Gender Comparison Chart (Updated - with Uninjured column)
-    if len(df) > 0 and 'PERSON_SEX' in df.columns:
-        # Filter out Unknown values
-        gender_df = df[df['PERSON_SEX'].isin(['M', 'F'])]
+            pie_fig = go.Figure()
+            pie_fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
         
-        if len(gender_df) > 0 and 'PERSON_INJURY' in gender_df.columns:
-            # First, let's see what values are in PERSON_INJURY
-            print("PERSON_INJURY unique values:", gender_df['PERSON_INJURY'].unique()[:20])
+        # 4. Contributing Factor Bar Chart - using standardized values
+        if len(df) > 0:
+            factor_counts = df['CONTRIBUTING_FACTOR_VEHICLE_1'].value_counts().head(10)
+            # Filter out Unknown and Unspecified
+            factor_counts = factor_counts[~factor_counts.index.isin(['Unknown', 'UNKNOWN', 'UNSPECIFIED'])]
             
-            # Calculate stats by gender - only M and F
-            gender_stats = gender_df.groupby('PERSON_SEX').agg({
-                'NUMBER_OF_PERSONS_INJURED': 'sum',
-                'NUMBER_OF_PERSONS_KILLED': 'sum'
-            }).reset_index()
-            
-            # Filter to only M and F rows
-            gender_stats = gender_stats[gender_stats['PERSON_SEX'].isin(['M', 'F'])].copy()
-            
-            # Rename columns first before using them
-            gender_stats.columns = ['Gender', 'Injuries', 'Fatalities']
-            
-            # Count uninjured people - using UNSPECIFIED as uninjured
-            uninjured_male = len(gender_df[(gender_df['PERSON_SEX'] == 'M') & 
-                                          (gender_df['PERSON_INJURY'] == 'UNSPECIFIED')])
-            uninjured_female = len(gender_df[(gender_df['PERSON_SEX'] == 'F') & 
-                                            (gender_df['PERSON_INJURY'] == 'UNSPECIFIED')])
-            
-            # Alternative: Count total people and subtract injured/killed
-            total_male = len(gender_df[gender_df['PERSON_SEX'] == 'M'])
-            total_female = len(gender_df[gender_df['PERSON_SEX'] == 'F'])
-            
-            # Get injured and killed counts
-            injured_male = int(gender_stats[gender_stats['Gender'] == 'M']['Injuries'].values[0]) if len(gender_stats[gender_stats['Gender'] == 'M']) > 0 else 0
-            injured_female = int(gender_stats[gender_stats['Gender'] == 'F']['Injuries'].values[0]) if len(gender_stats[gender_stats['Gender'] == 'F']) > 0 else 0
-            
-            killed_male = int(gender_stats[gender_stats['Gender'] == 'M']['Fatalities'].values[0]) if len(gender_stats[gender_stats['Gender'] == 'M']) > 0 else 0
-            killed_female = int(gender_stats[gender_stats['Gender'] == 'F']['Fatalities'].values[0]) if len(gender_stats[gender_stats['Gender'] == 'F']) > 0 else 0
-            
-            # If UNSPECIFIED count is zero, use calculation
-            if uninjured_male == 0 and uninjured_female == 0:
-                uninjured_male = total_male - injured_male - killed_male
-                uninjured_female = total_female - injured_female - killed_female
-            
-            # Create uninjured data that matches the filtered dataframe
-            uninjured_data = []
-            for idx, row in gender_stats.iterrows():
-                if row['Gender'] == 'F':
-                    uninjured_data.append(uninjured_female)
-                elif row['Gender'] == 'M':
-                    uninjured_data.append(uninjured_male)
-            
-            gender_stats['Uninjured'] = uninjured_data
-            
-            # Replace M/F with Male/Female for display
-            gender_stats['Gender'] = gender_stats['Gender'].replace({'M': 'Male', 'F': 'Female'})
-            
-            print(f"Gender stats:\n{gender_stats}")
-            
-            # Create grouped bar chart with 3 categories
-            gender_fig = go.Figure()
-            gender_fig.add_trace(go.Bar(
-                name='Uninjured',
-                x=gender_stats['Gender'],
-                y=gender_stats['Uninjured'],
-                marker_color='lightgreen',
-                text=gender_stats['Uninjured'],
-                textposition='auto'
-            ))
-            gender_fig.add_trace(go.Bar(
-                name='Injuries',
-                x=gender_stats['Gender'],
-                y=gender_stats['Injuries'],
-                marker_color='orange',
-                text=gender_stats['Injuries'],
-                textposition='auto'
-            ))
-            gender_fig.add_trace(go.Bar(
-                name='Fatalities',
-                x=gender_stats['Gender'],
-                y=gender_stats['Fatalities'],
-                marker_color='red',
-                text=gender_stats['Fatalities'],
-                textposition='auto'
-            ))
-            
-            gender_fig.update_layout(
-                title='Gender Comparison: Uninjured, Injuries & Fatalities',
-                xaxis_title='Gender',
-                yaxis_title='Count',
-                barmode='group',
-                height=400,
-                xaxis=dict(
-                    categoryorder='array',
-                    categoryarray=['Female', 'Male']
-                )
+            factor_bar_fig = px.bar(
+                x=factor_counts.values,
+                y=factor_counts.index,
+                title="Top Contributing Factors (Standardized)",
+                labels={'x': 'Number of Crashes', 'y': 'Contributing Factor'},
+                orientation='h',
+                color=factor_counts.values,
+                color_continuous_scale='Blues'
+            )
+            factor_bar_fig.update_layout(
+                xaxis_title="Number of Crashes",
+                yaxis_title="Contributing Factor",
+                showlegend=False,
+                height=400
             )
         else:
-            gender_fig = go.Figure()
-            gender_fig.add_annotation(text="No gender data available", x=0.5, y=0.5, showarrow=False)
-    else:
-        gender_fig = go.Figure()
-        gender_fig.add_annotation(text="No gender data available", x=0.5, y=0.5, showarrow=False)
-    
-    # 6. Map (sample data for performance)
-    if len(df) > 0 and 'LATITUDE' in df.columns and 'LONGITUDE' in df.columns:
-        # Sample first to reduce memory, then filter
-        sample_size = min(500, len(df))  # Reduced from 1000 to 500
-        try:
-            # Create a simple sample with valid coordinates only
-            map_df = df[['LATITUDE', 'LONGITUDE', 'BOROUGH', 'VEHICLE_TYPE_CODE_1']].copy()
+            factor_bar_fig = go.Figure()
+            factor_bar_fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
+        
+        # 5. Vehicle Type Bar Chart - using standardized values
+        if len(df) > 0:
+            vehicle_counts = df['VEHICLE_TYPE_CODE_1'].value_counts().head(10)
+            # Filter out Unknown
+            vehicle_counts = vehicle_counts[~vehicle_counts.index.isin(['Unknown', 'UNKNOWN'])]
             
-            # Use simple boolean indexing without notna() to avoid memory allocation
+            vehicle_bar_fig = px.bar(
+                x=vehicle_counts.index,
+                y=vehicle_counts.values,
+                title="Top Vehicle Types Involved in Crashes (Standardized)",
+                labels={'x': 'Vehicle Type', 'y': 'Number of Crashes'},
+                color=vehicle_counts.values,
+                color_continuous_scale='Greens'
+            )
+            vehicle_bar_fig.update_layout(
+                xaxis_title="Vehicle Type",
+                yaxis_title="Number of Crashes",
+                showlegend=False,
+                xaxis_tickangle=-45,
+                height=400
+            )
+        else:
+            vehicle_bar_fig = go.Figure()
+            vehicle_bar_fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
+        
+        # 6. Gender Comparison Chart - using standardized M/F values
+        if len(df) > 0 and 'PERSON_SEX' in df.columns and 'PERSON_INJURY' in df.columns:
+            # Use the FILTERED data (respects gender dropdown)
+            # Only show M/F, exclude Unknown
+            gender_df = df[df['PERSON_SEX'].isin(['M', 'F'])].copy()
+            
+            print(f"\n=== GENDER CHART DEBUG ===")
+            print(f"Filtered data for gender chart: {len(gender_df)} records")
+            print(f"Gender distribution: {gender_df['PERSON_SEX'].value_counts().to_dict()}")
+            
+            if len(gender_df) > 0:
+                # Initialize result dictionary for both genders (even if one is filtered out)
+                gender_data = {
+                    'Female': {'Uninjured': 0, 'Injured': 0, 'Killed': 0},
+                    'Male': {'Uninjured': 0, 'Injured': 0, 'Killed': 0}
+                }
+                
+                # Process each gender that exists in filtered data
+                for sex_code, sex_label in [('F', 'Female'), ('M', 'Male')]:
+                    sex_df = gender_df[gender_df['PERSON_SEX'] == sex_code]
+                    
+                    if len(sex_df) > 0:
+                        # Count by PERSON_INJURY standardized values
+                        gender_data[sex_label]['Uninjured'] = len(sex_df[sex_df['PERSON_INJURY'] == 'UNINJURED'])
+                        gender_data[sex_label]['Injured'] = len(sex_df[sex_df['PERSON_INJURY'] == 'INJURED'])
+                        gender_data[sex_label]['Killed'] = len(sex_df[sex_df['PERSON_INJURY'] == 'KILLED'])
+                        
+                        # If no explicit injury classification, use aggregated counts
+                        if gender_data[sex_label]['Injured'] == 0:
+                            gender_data[sex_label]['Injured'] = int(sex_df['NUMBER_OF_PERSONS_INJURED'].sum())
+                        if gender_data[sex_label]['Killed'] == 0:
+                            gender_data[sex_label]['Killed'] = int(sex_df['NUMBER_OF_PERSONS_KILLED'].sum())
+                        
+                        # Calculate uninjured as remainder if not explicitly coded
+                        total_sex = len(sex_df)
+                        if gender_data[sex_label]['Uninjured'] == 0:
+                            gender_data[sex_label]['Uninjured'] = max(0, 
+                                total_sex - gender_data[sex_label]['Injured'] - gender_data[sex_label]['Killed'])
+                
+                print(f"Gender data calculated: {gender_data}")
+                
+                # Only include genders that have data
+                gender_labels = []
+                uninjured_values = []
+                injured_values = []
+                killed_values = []
+                
+                for gender in ['Female', 'Male']:
+                    total_for_gender = (gender_data[gender]['Uninjured'] + 
+                                      gender_data[gender]['Injured'] + 
+                                      gender_data[gender]['Killed'])
+                    if total_for_gender > 0:
+                        gender_labels.append(gender)
+                        uninjured_values.append(gender_data[gender]['Uninjured'])
+                        injured_values.append(gender_data[gender]['Injured'])
+                        killed_values.append(gender_data[gender]['Killed'])
+                
+                if len(gender_labels) > 0:
+                    # Create the chart
+                    gender_fig = go.Figure()
+                    
+                    # Add traces with consistent formatting
+                    gender_fig.add_trace(go.Bar(
+                        name='Uninjured',
+                        x=gender_labels,
+                        y=uninjured_values,
+                        marker_color='lightgreen',
+                        text=[f'{int(val):,}' for val in uninjured_values],
+                        textposition='outside',
+                        textfont=dict(size=14, color='black')
+                    ))
+                    
+                    gender_fig.add_trace(go.Bar(
+                        name='Injuries',
+                        x=gender_labels,
+                        y=injured_values,
+                        marker_color='orange',
+                        text=[f'{int(val):,}' for val in injured_values],
+                        textposition='outside',
+                        textfont=dict(size=14, color='black')
+                    ))
+                    
+                    gender_fig.add_trace(go.Bar(
+                        name='Fatalities',
+                        x=gender_labels,
+                        y=killed_values,
+                        marker_color='red',
+                        text=[f'{int(val):,}' for val in killed_values],
+                        textposition='outside',
+                        textfont=dict(size=14, color='black')
+                    ))
+                    
+                    # Build title based on filters
+                    title_parts = ['Gender Comparison']
+                    if genders:
+                        gender_names = ['Male' if g == 'M' else 'Female' for g in genders]
+                        title_parts.append(f"({', '.join(gender_names)} Only)")
+                    
+                    gender_fig.update_layout(
+                        title=dict(
+                            text=' - '.join(title_parts),
+                            font=dict(size=18)
+                        ),
+                        xaxis_title='Gender',
+                        yaxis_title='Count',
+                        barmode='group',
+                        height=500,
+                        font=dict(size=16),
+                        legend=dict(
+                            font=dict(size=14),
+                            orientation="h",
+                            yanchor="bottom",
+                            y=1.02,
+                            xanchor="right",
+                            x=1
+                        ),
+                        yaxis=dict(tickformat=",d")
+                    )
+                    
+                    print(f"Gender chart created with labels: {gender_labels}")
+                else:
+                    gender_fig = go.Figure()
+                    gender_fig.add_annotation(
+                        text="No gender data available for selected filters",
+                        x=0.5, y=0.5,
+                        showarrow=False,
+                        font=dict(size=16)
+                    )
+            else:
+                gender_fig = go.Figure()
+                gender_fig.add_annotation(
+                    text="No valid gender data (M/F) in filtered results",
+                    x=0.5, y=0.5,
+                    showarrow=False,
+                    font=dict(size=16)
+                )
+        else:
+            gender_fig = go.Figure()
+            gender_fig.add_annotation(
+                text="Gender or injury data not available",
+                x=0.5, y=0.5,
+                showarrow=False,
+                font=dict(size=16)
+            )
+        
+        # 7. Map (sample data for performance)
+        if len(df) > 0 and 'LATITUDE' in df.columns and 'LONGITUDE' in df.columns:
+            map_df = df.dropna(subset=['LATITUDE', 'LONGITUDE'])
+            # Filter out invalid coordinates
             map_df = map_df[
                 (map_df['LATITUDE'] >= 40.5) & 
                 (map_df['LATITUDE'] <= 40.9) &
@@ -791,53 +879,62 @@ def update_dashboard(n_clicks, search_query, boroughs, years, vehicles, persons,
                 (map_df['LONGITUDE'] <= -73.7)
             ]
             
-            # Sample after filtering
-            if len(map_df) > sample_size:
-                map_df = map_df.head(sample_size)  # Use head instead of sample to avoid memory allocation
-        except Exception as e:
-            print(f"Map filtering error: {e}")
-            map_df = pd.DataFrame()
-        
-        if len(map_df) > 0:
-            
-            map_fig = px.scatter_mapbox(
-                map_df,
-                lat="LATITUDE",
-                lon="LONGITUDE",
-                hover_data=["BOROUGH", "VEHICLE_TYPE_CODE_1"],
-                zoom=10,
-                height=400,
-                title=f"Crash Locations (Sample of {sample_size} crashes)",
-                color_discrete_sequence=["red"]
-            )
-            map_fig.update_layout(
-                mapbox_style="open-street-map",
-                mapbox=dict(center=dict(lat=40.7, lon=-74.0))
-            )
+            if len(map_df) > 0:
+                sample_size = min(1000, len(map_df))
+                map_df = map_df.sample(n=sample_size, random_state=42)
+                
+                map_fig = px.scatter_mapbox(
+                    map_df,
+                    lat="LATITUDE",
+                    lon="LONGITUDE",
+                    hover_data=["BOROUGH", "VEHICLE_TYPE_CODE_1"],
+                    zoom=10,
+                    height=400,
+                    title=f"Crash Locations (Sample of {sample_size} crashes)",
+                    color_discrete_sequence=["red"]
+                )
+                map_fig.update_layout(
+                    mapbox_style="open-street-map",
+                    mapbox=dict(center=dict(lat=40.7, lon=-74.0))
+                )
+            else:
+                map_fig = go.Figure()
+                map_fig.add_annotation(text="No valid location data available", x=0.5, y=0.5, showarrow=False)
         else:
             map_fig = go.Figure()
-            map_fig.add_annotation(text="No valid location data available", x=0.5, y=0.5, showarrow=False)
-    else:
-        map_fig = go.Figure()
-        map_fig.add_annotation(text="No location data available", x=0.5, y=0.5, showarrow=False)
+            map_fig.add_annotation(text="No location data available", x=0.5, y=0.5, showarrow=False)
+        
+        print(f"=== Results (Standardized Data) ===")
+        print(f"Crashes: {total_crashes:,}, Injuries: {total_injuries:,}, Fatalities: {total_fatalities:,}")
+        print(f"Most dangerous borough: {most_dangerous}")
+        
+        return (
+            f"{total_crashes:,}",
+            f"{total_injuries:,}",
+            f"{total_fatalities:,}",
+            most_dangerous,
+            borough_bar_fig,
+            time_fig,
+            pie_fig,
+            factor_bar_fig,
+            vehicle_bar_fig,
+            gender_fig,
+            map_fig
+        )
     
-    print(f"=== Results ===")
-    print(f"Crashes: {total_crashes:,}, Injuries: {total_injuries:,}, Fatalities: {total_fatalities:,}")
-    print(f"Most dangerous borough: {most_dangerous}")
-    
-    return (
-        f"{total_crashes:,}",
-        f"{total_injuries:,}",
-        f"{total_fatalities:,}",
-        most_dangerous,
-        borough_bar_fig,
-        time_fig,
-        pie_fig,
-        factor_bar_fig,
-        person_pie_fig,
-        gender_fig,
-        map_fig
-    )
+    except Exception as e:
+        print(f"ERROR in update_dashboard: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        empty_fig = go.Figure()
+        empty_fig.add_annotation(
+            text=f"Error processing data: {str(e)}<br>Check console for details",
+            x=0.5, y=0.5,
+            showarrow=False,
+            font=dict(size=14, color='red')
+        )
+        return "Error", "Error", "Error", "Error", empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8050)
+    app.run_server(debug=True, port=8050)
