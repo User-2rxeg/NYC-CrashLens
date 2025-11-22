@@ -1,0 +1,24 @@
+# Large data files
+*.csv
+cleaned_merged_data.csv
+cleaned_merged_data (1).csv
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
