@@ -211,36 +211,39 @@ The parser intelligently extracts and recognizes:
 ## 👥 Team Contributions
 
 ### **Abdelmonem Sayed** (13006494)
-- Data ingestion and retrieval
-- Exploratory Data Analysis (EDA)
-- Pre-integration cleaning
-- Research questions implementation
+- Pre-integration cleaning (All)
 
-### **Ramez Mokbil**
+
+
+### **Ramez Mokbil** (13007430)
+
+- Post-integration cleaning and validation
+- Handling join-induced missing value
+
+
+### **Seif Saad** (14004494)
+
+- Backend 
+- Deployment
 - Crash–Person dataset integration (`COLLISION_ID`)
-- Derived feature engineering
-- Aggregation logic for backend analytics
-- Data integrity checks
 
-### **Seif Saad**
-- Backend API architecture (FastAPI/Flask)
-- Caching layer for performance
-- Deployment & CI/CD setup
-- API endpoint development
 
 ### **Eyad Ahmed** (13005238)
-- Frontend dashboard and visual components
-- Interactive visualizations (Plotly)
-- Natural-language search parser
-- Project documentation and README writing
 
-### **Ahmed Amr**
-- Frontend visualization refinement (charts, KPIs, layout)
-- Research question formulation
+- Data ingestion and retrieval
+- Exploratory Data Analysis (EDA)
+- Research questions implementation & Formulation
 - README structuring and documentation
-- Post-integration cleaning and validation
-- Handling join-induced missing values
 
+
+### **Ahmed Amr** (13007323)
+
+- Frontend visualization refinement (charts, KPIs, layout)
+- Frontend dashboard and visual components
+
+
+
+- Interactive visualizations (Plotly)
 ---
 
 ## 🚀 Getting Started
