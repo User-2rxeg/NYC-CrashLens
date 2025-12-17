@@ -214,7 +214,6 @@ The parser intelligently extracts and recognizes:
 - Pre-integration cleaning (All)
 
 
-
 ### **Ramez Mokbil** (13007430)
 
 - Post-integration cleaning and validation
@@ -223,9 +222,9 @@ The parser intelligently extracts and recognizes:
 
 ### **Seif Saad** (14004494)
 
+- Crash–Person dataset integration (`COLLISION_ID`)
 - Backend 
 - Deployment
-- Crash–Person dataset integration (`COLLISION_ID`)
 
 
 ### **Eyad Ahmed** (13005238)
